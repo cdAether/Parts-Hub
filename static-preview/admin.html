@@ -219,7 +219,7 @@ function render(){
   const p = parts(), t = S.tab;
   const stats = [[p.length,'Individual parts','package'],[p.filter(x => x.photos?.length).length,'With photo evidence','camera'],[store.records.filter(x => x.kind === 'request').length,'Sourcing requests','clipboard'],[batches().filter(x => x.status !== 'Collected' && x.status !== 'Archived').length,'Active batches','layers']];
   document.getElementById('app').innerHTML = '<div class="shell"><aside><a class="brand" href="admin.html">AW<span>11</span><small>PARTS EXCHANGE</small></a><div class="workspace-label">YOUR WORKSPACE</div><nav>' + tabs.map(([key, label, icon]) => '<button class="' + (t === key ? 'active' : '') + '" data-act="tab" data-tab="' + key + '">' + ic(icon) + label + ic('chevron',14) + '</button>').join('') + '</nav><div class="route"><div class="route-line">AKL <span>··········→</span> SYD</div><p>Rare parts.<br>A clearer journey.</p><small>Preorder • Consolidate • Collect</small></div><div class="private"><span class="dot"></span> Static preview<small>Customer exports exclude internal fields.</small></div></aside>'
-  + '<main><header><div class="crumb">WORKSHOP / ' + (t === 'part' ? 'CATALOGUE' : t === 'request' ? 'SOURCING' : 'LOGISTICS') + '</div><button class="subtle" data-act="backup">' + ic('download',15) + 'Back up records</button></header>'
+  + '<main><header><div class="crumb">WORKSHOP / ' + (t === 'part' ? 'CATALOGUE' : t === 'request' ? 'SOURCING' : 'LOGISTICS') + '</div><span><button class="subtle" data-act="backup">' + ic('download',15) + 'Back up records</button><label class="subtle" style="display:inline-flex;flex-direction:row;align-items:center;gap:8px;cursor:pointer;padding:11px 15px;color:inherit;font-size:12px">Restore from backup<input type="file" id="restore" accept="application/json,.json" hidden></label></span></header>'
   + '<section class="hero"><div><div class="eyebrow">THE NZ → SYDNEY PARTS ROUTE</div><h1>' + (t === 'part' ? 'Every part. Every detail.' : t === 'request' ? 'Find the missing pieces.' : 'One box. Many projects.') + '</h1><p>' + (t === 'part' ? 'A proper record for every piece, from first photo to final handover.' : t === 'request' ? 'Keep interest organised before you commit to an order.' : 'Coordinate your next shipment without keeping a warehouse.') + '</p></div><button class="primary" data-act="new">' + ic('plus') + 'Add ' + noun(true) + '</button></section>'
   + '<section class="stats">' + stats.map(([n, l, i]) => '<div>' + ic(i,19) + '<strong>' + String(n).padStart(2,'0') + '</strong><span>' + l + '</span></div>').join('') + '</section>'
   + (S.error && !S.edit && !S.importing ? '<div role="alert" class="error">' + esc(S.error) + '<button data-act="dismiss" aria-label="Dismiss error">' + ic('x',16) + '</button></div>' : '')
@@ -245,7 +245,7 @@ app.addEventListener('click', ev => {
   else if (act === 'history') S.history = store.revisions.filter(r => r.id === S.detail.id).sort((a, b) => b.revision - a.revision);
   else if (act === 'rev') { const r = S.history.find(h => String(h.revision) === el.dataset.rev); return download('revision-' + r.revision + '.json', JSON.stringify(r, null, 2)); }
   else if (act === 'snapshot') return download('part-' + (S.detail.sku || S.detail.id) + '-rev-' + S.detail.revision + '.json', JSON.stringify(S.detail, null, 2));
-  else if (act === 'backup') return download('aw11-database-backup.json', JSON.stringify({exportedAt: new Date().toISOString(), records: store.records}, null, 2));
+  else if (act === 'backup') return download('aw11-database-backup.json', JSON.stringify({exportedAt: new Date().toISOString(), records: store.records, revisions: store.revisions}, null, 2));
   else if (act === 'export') return exportCatalogue();
   else if (act === 'dismiss') S.error = '';
   else if (act === 'dismissnote') S.note = '';
@@ -290,6 +290,18 @@ app.addEventListener('input', ev => {
 app.addEventListener('change', async ev => {
   const el = ev.target;
   if (el.id === 'filter') { S.filter = el.value; document.getElementById('list').innerHTML = listHtml(); }
+  else if (el.id === 'restore' && el.files[0]) {
+    try {
+      const d = JSON.parse(await el.files[0].text());
+      const ok = r => r && typeof r.id === 'string' && typeof r.title === 'string' && ['part','request','batch'].includes(r.kind);
+      if (!d || !Array.isArray(d.records) || !d.records.every(ok)) throw Error('That file is not a records backup from this workspace.');
+      if (store.records.length && !confirm('Replace the ' + store.records.length + ' record(s) in this browser with the ' + d.records.length + ' in the backup?')) return;
+      const before = JSON.stringify(store);
+      store = {records: d.records, revisions: Array.isArray(d.revisions) ? d.revisions.filter(ok) : d.records.map(r => ({...r, savedAt: r.updated}))};
+      if (commit()) { S.note = 'Restored ' + d.records.length + ' record' + (d.records.length === 1 ? '' : 's') + ' from the backup.'; S.error = ''; } else store = JSON.parse(before);
+    } catch (e) { S.error = e instanceof SyntaxError ? 'That file is not a records backup from this workspace.' : e.message; }
+    render();
+  }
   else if (el.id === 'upload' && S.edit) {
     const skipped = [];
     for (const file of Array.from(el.files || [])) {
