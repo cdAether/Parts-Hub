@@ -132,7 +132,7 @@ function editHtml(){
   if (e.kind === 'request') h += '<label>Whose order' + select('order', ['Group order','My own order'], e.order || 'Group order') + '</label>' + field('Customer note (passed to supplier)','requestNote','textarea') + '<h3 class="full">Supplier reply</h3><label>Availability' + select('availability', availabilities, e.availability || 'Not asked') + '</label>' + field('Customer quoted total (AUD)','price','number');
   if (e.kind === 'part') h += '<label>Customer export' + select('visibility', ['Draft','Catalogue'], e.visibility) + '</label>' + field('Customer quoted total (AUD)','price','number');
   if (e.kind === 'batch') h += field('Route','route') + field('Order cutoff','cutoff','date') + field('Expected arrival (estimate)','arrival','date') + field('Tracking reference','tracking') + field('Carrier','carrier') + field('Pickup / handover arrangements','handover','textarea') + field('Freight allocation method','allocation','textarea');
-  h += '<h3 class="full">Internal coordination</h3>' + field('Supplier / source','supplier') + field('Buyer reference (private)','buyer') + field('Part cost in AUD','cost','number') + field('Freight share in AUD','freight','number') + field('Coordination fee in AUD','fee','number') + '<label>Batch' + select('batch', [['','Not assigned'], ...batches().map(b => [b.id, b.title])], e.batch || '') + '</label>' + field('Payment status / reference — no card data','payment') + field('Buyer approval reference + approved revision','approval') + field('Private notes / next action','notes','textarea') + '</div>';
+  h += '<h3 class="full">Internal coordination</h3>' + field('Supplier / source','supplier') + field('Buyer reference (private)','buyer') + field('Part cost in AUD','cost','number') + field('Freight share in AUD (known after packing)','freight','number') + field('Coordination fee in AUD','fee','number') + '<label>Batch' + select('batch', [['','Not assigned'], ...batches().map(b => [b.id, b.title])], e.batch || '') + '</label>' + field('Payment status / reference — no card data','payment') + field('Buyer approval reference + approved revision','approval') + field('Private notes / next action','notes','textarea') + '</div>';
   h += '<h3>Photo evidence</h3><p>Front, rear, part number, connectors, mounting tabs and every defect. JPG/PNG/WebP. In this preview photos are kept in the browser, up to 1 MB each.</p><label class="upload">' + ic('camera',19) + 'Upload photos<input type="file" id="upload" accept="image/jpeg,image/png,image/webp" multiple></label><div class="photos" id="editphotos">' + photosHtml() + '</div><div class="actions"><button class="primary" type="submit">' + ic('check',17) + 'Save record</button><button type="button" data-act="closeedit">Cancel</button></div></form></div>';
   return h;
 }
@@ -171,19 +171,22 @@ function exportSupplier(){
 }
 function exportQuote(buyer){
   const list = store.records.filter(r => r.kind === 'request' && r.status !== 'Archived' && r.buyer === buyer);
-  let total = 0, priced = 0;
-  let html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AW11 parts quote</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px;color:#182a2b;background:#f5f4ef}article{background:white;padding:22px;margin:20px 0;border:1px solid #ddd;border-radius:12px}img{max-width:280px;max-height:240px;margin:8px 8px 0 0}figure{display:inline-block;margin:0}p{white-space:pre-wrap}.price{font-weight:600}</style><h1>AW11 Parts Exchange – your quote</h1><p>Prepared ' + esc(new Date().toLocaleDateString('en-AU')) + '. Photos and condition are as supplied by the seller in NZ. Freight is shared across the shipment and is not included unless stated. Nothing is ordered until you confirm.</p>';
+  let total = 0, priced = 0, freight = 0;
+  const num = v => v !== '' && v != null && !isNaN(Number(v));
+  const final = list.some(r => (r.availability || '') === 'Available' && num(r.freight));
+  let html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AW11 parts quote</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px;color:#182a2b;background:#f5f4ef}article{background:white;padding:22px;margin:20px 0;border:1px solid #ddd;border-radius:12px}img{max-width:280px;max-height:240px;margin:8px 8px 0 0}figure{display:inline-block;margin:0}p{white-space:pre-wrap}.price{font-weight:600}</style><h1>AW11 Parts Exchange – ' + (final ? 'your final amount' : 'your parts quote') + '</h1><p>Prepared ' + esc(new Date().toLocaleDateString('en-AU')) + '. Photos and condition are as supplied by the seller in NZ. ' + (final ? 'The box has been packed, weighed and measured, so your share of the freight is now included.' : 'These are parts prices only. Freight can only be worked out once the supplier has packed, weighed and measured the box, so your share of the freight will follow before anything is sent. Nothing is ordered until you confirm.') + '</p>';
   for (const r of list) {
     const avail = r.availability || 'Not asked', ok = avail === 'Available';
     html += '<article><h2>' + esc(r.title) + '</h2><p>Ref R-' + esc(r.id.slice(0, 6).toUpperCase()) + ' · ' + esc(ok ? 'Available' : avail === 'Not available' ? 'Not available' : 'Still being checked with the supplier') + '</p>';
     if (ok) {
       for (const ph of r.photos || []) html += '<figure><img src="' + esc(ph.url) + '" alt=""><figcaption>' + esc(ph.caption) + '</figcaption></figure>';
       html += '<h3>Condition</h3><p>' + esc(r.condition || 'Not described yet') + '</p><h3>Tested</h3><p>' + esc(r.testing || 'Not recorded') + '</p><p class="price">Price: ' + esc(money(r.price)) + '</p>';
-      if (r.price !== '' && r.price != null && !isNaN(Number(r.price))) { total += Number(r.price); priced++; }
+      if (num(r.price)) { total += Number(r.price); priced++; }
+      if (final && num(r.freight)) { freight += Number(r.freight); html += '<p>Freight share: ' + esc(money(r.freight)) + '</p>'; }
     }
     html += '</article>';
   }
-  if (priced) html += '<p class="price">Total for ' + priced + ' priced part' + (priced > 1 ? 's' : '') + ': ' + esc(money(total)) + '</p>';
+  if (priced) html += '<p class="price">Parts total for ' + priced + ' priced part' + (priced > 1 ? 's' : '') + ': ' + esc(money(total)) + '</p>' + (final ? '<p class="price">Freight share: ' + esc(money(freight)) + '</p><p class="price">Total to pay: ' + esc(money(total + freight)) + '</p>' : '<p>Freight share: to be confirmed after packing.</p>');
   download('AW11-quote.html', html, 'text/html');
 }
 function render(){
