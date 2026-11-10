@@ -3,224 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AW11 Parts Exchange – static preview</title>
-<meta name="description" content="Static preview of the AW11 Parts Exchange workspace. Records stay in this browser only.">
+<title>AW11 Parts Exchange – request parts</title>
+<meta name="description" content="Request Toyota MR2 AW11 parts from New Zealand, combined into shared shipments to Sydney.">
 <meta name="robots" content="noindex">
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="globals.css">
 <style>
-.preview-banner{background:#203832;color:#f5f5ef;padding:9px 16px;font-size:13px;text-align:center}
-.preview-banner button{display:inline;padding:2px 8px;margin-left:8px;background:transparent;color:inherit;border-color:#83a18c}
+.page{max-width:780px;margin:0 auto;padding:28px 20px 60px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.logo{font:700 26px 'Space Grotesk';letter-spacing:-1.5px;color:#203832;text-decoration:none}
+.logo span{color:#598a74}
+.logo small{display:block;font:500 9px 'DM Sans';letter-spacing:3px;margin-top:2px}
+.lead{font-size:15px;line-height:1.55;max-width:60ch}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:26px 0;padding:0;list-style:none;counter-reset:s}
+.steps li{background:white;border:1px solid #dce1d9;border-radius:10px;padding:16px;counter-increment:s;font-size:13px;line-height:1.45}
+.steps li::before{content:counter(s);display:block;font:600 20px 'Space Grotesk';color:#598a74;margin-bottom:6px}
+.panel{background:#fbfcf8;border:1px solid #dce1d9;border-radius:14px;padding:26px;margin:18px 0}
+.panel h2{font:500 22px 'Space Grotesk';letter-spacing:-.5px;margin:0 0 6px}
+.panel>p{font-size:13px;margin:0 0 18px;color:#52665a}
+.part{border-top:1px solid #dce1d9;padding:18px 0}
+.part:first-of-type{border-top:0;padding-top:0}
+.part-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:600}
+.part-head button{padding:6px 10px;font-size:12px}
+.note{font-size:12px;color:#52665a;line-height:1.5}
+.done{white-space:pre-wrap;background:white;border:1px solid #cfd8cb;border-radius:8px;padding:14px;font-size:12px;line-height:1.5;max-height:260px;overflow:auto;overflow-wrap:anywhere}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.ok{padding:12px 14px;background:#eef3ed;border:1px solid #598a74;border-radius:8px;margin-top:14px;font-size:13px}
+footer{margin-top:30px;font-size:11px;color:#8d988f;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+footer a{color:inherit}
+@media(max-width:700px){.steps{grid-template-columns:1fr}.panel{padding:18px}}
 </style>
 </head>
 <body>
-<div class="preview-banner">Static preview: records are saved only in this browser. There is no sign-in, database or photo storage, so do not enter private details. <button id="reset">Reset preview data</button></div>
-<div id="app"></div>
+<div class="page">
+<div class="top"><a class="logo" href="./">AW<span>11</span><small>PARTS EXCHANGE</small></a></div>
+<div class="eyebrow" style="margin-top:34px">THE NZ → SYDNEY PARTS ROUTE</div>
+<h1>Chasing AW11 parts? Add them to the next box.</h1>
+<p class="lead">Parts for the first-generation MR2 are easier to find in New Zealand than here. Requests from NSW owners are combined into one shipment so the freight is shared.</p>
+<ol class="steps">
+<li>Tell us about your car and the parts you need.</li>
+<li>Your list is checked with the supplier in NZ, who confirms what he has, its condition and a price.</li>
+<li>You get a quote with photos. Nothing is ordered until you agree to it.</li>
+</ol>
+
+<form id="req">
+<section class="panel">
+<h2>Your car</h2>
+<p>These details decide which version of a part fits. If you are not sure, leave it on “Not sure”.</p>
+<div class="form-grid">
+<label>Build date (month and year, from the build plate)<input type="month" id="buildDate" min="1984-01" max="1990-12"></label>
+<label>Engine<select id="engine"><option value="Not confirmed">Not sure</option><option>NA (4A-GE)</option><option>Supercharged (4A-GZE)</option></select></label>
+<label>Gearbox<select id="gearbox"><option value="Not confirmed">Not sure</option><option>Manual</option><option>Auto</option></select></label>
+<label>Roof<select id="roof"><option value="Not confirmed">Not sure</option><option>T-bar</option><option>Hardtop (slicktop)</option><option>Sunroof</option></select></label>
+<label>Where the car was sold new<select id="market"><option value="Not confirmed">Not sure</option><option>Australian-delivered</option><option>Japanese import</option><option>Other import</option></select></label>
+</div>
+</section>
+
+<section class="panel">
+<h2>Parts you need</h2>
+<p>One entry per part. Mention colour for trim, and the part number if you can read it off your old part.</p>
+<div id="parts"></div>
+<button type="button" id="add">+ Add another part</button>
+</section>
+
+<section class="panel">
+<h2>Your details</h2>
+<p>Used only to reply to you about this request. They are not passed to the supplier.</p>
+<div class="form-grid">
+<label>Name<input id="name" required maxlength="80" autocomplete="name"></label>
+<label>How to reach you (phone, email or Messenger name)<input id="contact" required maxlength="120"></label>
+</div>
+</section>
+
+<button class="primary" type="submit">Prepare my request</button>
+<p class="note">This page does not send anything by itself. It prepares a message for you to send to the organiser.</p>
+</form>
+
+<section class="panel" id="result" hidden>
+<h2>Send this to the organiser</h2>
+<p>Send the whole message, including the code on the last line, through the chat or email where you were given this link.</p>
+<div class="done" id="message"></div>
+<div class="row"><button class="primary" type="button" id="share">Share message</button><button type="button" id="copy">Copy message</button><button type="button" id="edit">Change my answers</button></div>
+<div class="ok" id="status" role="status" hidden></div>
+</section>
+
+<footer><span>Availability, fitment and price are unconfirmed until the supplier has checked the actual part.</span><a href="admin.html">Organiser workspace</a></footer>
+</div>
 <script>
 'use strict';
-// Static preview of app/workspace.tsx. The hosted app keeps records in D1 and
-// photos in R2 behind sign-in; this page keeps everything in localStorage.
-const KEY = 'aw11-preview-v1';
-const MAX_PHOTO_BYTES = 1024 * 1024;
-const stages = ['Sourcing','Awaiting evidence','Ready to quote','Reserved','Ordered','In transit','Received','Collected','Archived'];
-const seedTitles = ['RH power window regulator & motor','LH power window motor','Driver master window switch','Passenger window switch','LH door latch assembly','Engine bay fuse box cover'];
-const sides = ['Not applicable','RH — driver (RHD)','LH — passenger (RHD)','Pair'];
-const vehicleFields = [
-  ['Car build date (month and year)','buildDate',null],
-  ['Engine','engine',['Not confirmed','NA (4A-GE)','Supercharged (4A-GZE)']],
-  ['Gearbox','gearbox',['Not confirmed','Manual','Auto']],
-  ['Roof','roof',['Not confirmed','T-bar','Hardtop (slicktop)','Sunroof']],
-  ['Market','market',['Not confirmed','Australian-delivered','Japanese import','Other import']]
-];
-const customerQuestions = `To match parts to your AW11, can you tell me:
-1. Build date (month and year, from the build plate)
-2. Engine: NA (4A-GE) or supercharged (4A-GZE)
-3. Gearbox: manual or auto
-4. Roof: T-bar, hardtop (slicktop) or sunroof
-5. Australian-delivered or an import
-6. For each part: which side (left/right), colour if it is trim, and a photo of your old part or its part number if you have one
-No price or availability is confirmed until the supplier has checked the actual part.`;
-const tabs = [['part','Parts catalogue','package'],['request','Sourcing requests','clipboard'],['batch','Shipment batches','ship']];
-const icons = {
-  package:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
-  clipboard:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
-  ship:'<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M12 10v4"/><path d="M12 2v3"/>',
-  layers:'<path d="m12 2 9 5-9 5-9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
-  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/>',
-  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
-  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
-  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  check:'<path d="M20 6 9 17l-5-5"/>',
-  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
-  arrow:'<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
-  chevron:'<path d="m9 18 6-6-6-6"/>',
-  settings:'<path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>'
-};
-const ic = (name, size = 18, sw = 2) => '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + icons[name] + '</svg>';
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money = n => n === '' || n == null ? 'Quote pending' : new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(n));
-const empty = kind => ({kind,title:'',status:kind==='part'?'Awaiting evidence':'Sourcing',category:'Doors & windows',side:'Not applicable',fitment:'AW11 — exact fitment unconfirmed',condition:'',testing:'Not tested / no evidence supplied',included:'',missing:'',supplier:'',sku:'',partNumber:'',buildDate:'',engine:'Not confirmed',gearbox:'Not confirmed',roof:'Not confirmed',market:'Not confirmed',photos:[],price:'',cost:'',freight:'',fee:'',buyer:'',notes:'',batch:'',visibility:'Draft'});
-const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+const $ = id => document.getElementById(id);
+const sides = ['Not applicable','Right (driver side)','Left (passenger side)','Pair'];
+let count = 0;
+function addPart(){
+  count++;
+  const d = document.createElement('div');
+  d.className = 'part';
+  d.innerHTML = '<div class="part-head"><span>Part</span><button type="button" class="rm">Remove</button></div><div class="form-grid"><label class="full" style="grid-column:1/-1">What is the part?<input class="p-name" required maxlength="160" placeholder="e.g. Driver’s window regulator with motor"></label><label>Side<select class="p-side">' + sides.map(s => '<option>' + s + '</option>').join('') + '</select></label><label>How many<input class="p-qty" type="number" min="1" max="20" value="1"></label><label style="grid-column:1/-1">Anything else (colour, part number, what is wrong with yours)<textarea class="p-note" maxlength="500" rows="2"></textarea></label></div>';
+  d.querySelector('.rm').addEventListener('click', () => { if (document.querySelectorAll('.part').length > 1) d.remove(); });
+  $('parts').appendChild(d);
+}
+addPart();
+$('add').addEventListener('click', () => { if (document.querySelectorAll('.part').length < 30) addPart(); });
 
-let store = {records:[],revisions:[]};
-try { store = JSON.parse(localStorage.getItem(KEY)) || store; } catch {}
-const S = {tab:'part',search:'',filter:'All stages',edit:null,detail:null,history:null,error:'',note:''};
-
-function commit(){
-  try { localStorage.setItem(KEY, JSON.stringify(store)); return true; }
-  catch { S.error = 'This browser could not store the preview data (storage is full or blocked).'; return false; }
-}
-function persist(row){
-  const now = new Date().toISOString();
-  if (!row.title.trim()) throw Error('Invalid record');
-  const old = row.id && store.records.find(r => r.id === row.id);
-  if (row.id && !old) throw Error('Not found');
-  if (old && old.revision !== row.revision) throw Error('This record changed. Reload before editing.');
-  const saved = {...row, id: row.id || uid(), revision: old ? old.revision + 1 : 1, updated: now};
-  const before = JSON.stringify(store);
-  store.records = [saved, ...store.records.filter(r => r.id !== saved.id)];
-  store.revisions.push({...saved, savedAt: now});
-  if (!commit()) { store = JSON.parse(before); throw Error(S.error); }
-}
-function download(name, value, type = 'application/json'){
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([value], {type}));
-  a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-const parts = () => store.records.filter(r => r.kind === 'part');
-const batches = () => store.records.filter(r => r.kind === 'batch');
-const shown = () => store.records.filter(x => x.kind === S.tab && (S.filter === 'All stages' || x.status === S.filter) && JSON.stringify([x.title,x.sku,x.partNumber,x.fitment,x.category]).toLowerCase().includes(S.search.toLowerCase()));
-const noun = (one) => S.tab === 'part' ? (one ? 'part' : 'PART RECORDS') : S.tab === 'request' ? (one ? 'request' : 'REQUESTS') : (one ? 'batch' : 'BATCHES');
-
-function exportCatalogue(){
-  const safe = parts().filter(p => p.visibility === 'Catalogue' && p.status !== 'Archived');
-  if (!safe.length) { S.error = 'Mark at least one part as Catalogue in its edit form first.'; return render(); }
-  let html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AW11 Parts Catalogue</title><style>body{font:16px system-ui;max-width:1000px;margin:40px auto;padding:20px;color:#182a2b;background:#f5f4ef}article{background:white;padding:24px;margin:24px 0;border:1px solid #ddd;border-radius:12px}img{max-width:280px;max-height:240px;margin:8px}p{white-space:pre-wrap}</style><h1>AW11 Parts Exchange</h1><p>Condition catalogue • Generated ' + esc(new Date().toLocaleString('en-AU')) + '</p><p>Availability and fitment require confirmation. Photos document the listed unit; they do not waive rights for misdescription or undisclosed faults. Contact the organiser to request a quote.</p>';
-  for (const p of safe) {
-    html += '<article><h2>' + esc(p.title) + '</h2><p>' + esc(p.sku || p.id) + ' · Revision ' + esc(p.revision) + ' · ' + esc(p.status) + '</p>';
-    for (const ph of p.photos || []) html += '<figure><img src="' + esc(ph.url) + '" alt=""><figcaption>' + esc(ph.caption) + '</figcaption></figure>';
-    for (const [label, key] of [['Part number','partNumber'],['Fitment','fitment'],['Side','side'],['Condition & defects','condition'],['Test evidence','testing'],['Included','included'],['Missing','missing']]) html += '<h3>' + label + '</h3><p>' + esc(p[key] || 'Not recorded') + '</p>';
-    html += '<p>Price: ' + esc(money(p.price)) + '</p></article>';
-  }
-  download('AW11-customer-catalogue.html', html, 'text/html');
-}
-
-function listHtml(){
-  const rows = shown();
-  let h = '<div class="section-label"><span>' + rows.length + ' ' + noun() + '</span><span>SAVED IN THIS BROWSER · PREVIEW</span></div>';
-  if (rows.length) {
-    h += '<section class="grid">' + rows.map(p => '<button class="card" data-act="detail" data-id="' + esc(p.id) + '"><div class="card-image">' + (p.photos?.[0] ? '<img src="' + esc(p.photos[0].url) + '" alt="' + esc(p.photos[0].caption) + '">' : ic('package',45,1) + '<span>' + (p.kind === 'part' ? 'PHOTO EVIDENCE NEEDED' : p.kind === 'request' ? 'SOURCING REQUEST' : 'SHIPMENT RECORD') + '</span>') + '<span class="badge">' + esc(p.status) + '</span></div><div class="card-body"><small>' + esc(p.sku || p.id.slice(0,8).toUpperCase()) + ' · REV ' + esc(p.revision) + '</small><h2>' + esc(p.title) + '</h2><p>' + esc(p.fitment) + '</p><div class="card-foot"><span>' + esc(p.kind === 'part' ? money(p.price) : p.kind === 'batch' ? p.route || 'NZ → Sydney' : p.side) + '</span>' + ic('arrow') + '</div></div></button>').join('') + '</section>';
-  } else {
-    h += '<section class="empty"><div class="empty-icon">' + ic('package',32) + '</div><h2>' + (S.search || S.filter !== 'All stages' ? 'No matching records' : 'Your next build starts here.') + '</h2><p>No invented stock, prices or condition claims.<br>Add a real record when you have the details.</p><button class="primary" data-act="new">' + ic('plus',17) + 'Create first ' + S.tab + '</button>' + (!store.records.length ? '<button class="subtle" data-act="starter">Load your six starter sourcing requests →</button>' : '') + '</section>';
-  }
-  return h;
-}
-function field(label, key, type = 'text'){
-  const v = esc(S.edit[key] ?? '');
-  return '<label>' + label + (type === 'textarea' ? '<textarea data-f="' + key + '">' + v + '</textarea>' : '<input data-f="' + key + '" type="' + type + '"' + (type === 'number' ? ' step="0.01" min="0"' : '') + ' value="' + v + '">') + '</label>';
-}
-const select = (key, options, value) => '<select data-f="' + key + '">' + options.map(o => { const [val, text] = Array.isArray(o) ? o : [o, o]; return '<option value="' + esc(val) + '"' + (val === value ? ' selected' : '') + '>' + esc(text) + '</option>'; }).join('') + '</select>';
-function photosHtml(){
-  return (S.edit.photos || []).map((ph, i) => '<figure><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption) + '"><input data-cap="' + i + '" aria-label="Photo ' + (i + 1) + ' caption" value="' + esc(ph.caption) + '"><button type="button" data-act="rmphoto" data-i="' + i + '">Remove from record</button></figure>').join('');
-}
-function editHtml(){
-  const e = S.edit;
-  let h = '<div class="overlay"><form class="modal" id="editform"><div class="modal-top"><span>' + (e.id ? 'EDIT RECORD' : 'NEW ' + e.kind.toUpperCase()) + '</span><button type="button" data-act="closeedit" aria-label="Close">' + ic('x',24) + '</button></div><h2>' + (e.id ? 'Keep the record accurate.' : 'Give every piece a paper trail.') + '</h2><p>Record uncertainty explicitly. Save creates a new revision.</p>' + (S.error ? '<p role="alert" class="error">' + esc(S.error) + '</p>' : '') + '<div class="form-grid"><label class="full">Title<input required maxlength="160" data-f="title" value="' + esc(e.title) + '"></label>' + field('SKU / physical label','sku') + '<label>Stage' + select('status', stages, e.status) + '</label>';
-  if (e.kind !== 'batch') h += field('Category','category') + field('Part number — verify before sale','partNumber') + field('Vehicle / year / variant / fitment','fitment') + '<label>Side' + select('side', sides, e.side) + '</label>' + '<h3 class="full">' + (e.kind === 'part' ? 'Donor car' : 'Customer car') + '</h3>' + vehicleFields.map(([label, key, options]) => options ? '<label>' + label + select(key, options, e[key] || 'Not confirmed') + '</label>' : field(label, key, 'month')).join('') + field('Condition and every known defect','condition','textarea') + field('Test performed, date and evidence','testing','textarea') + field('Included hardware / components','included','textarea') + field('Missing items / unknowns','missing','textarea');
-  if (e.kind === 'part') h += '<label>Customer export' + select('visibility', ['Draft','Catalogue'], e.visibility) + '</label>' + field('Customer quoted total (AUD)','price','number');
-  if (e.kind === 'batch') h += field('Route','route') + field('Order cutoff','cutoff','date') + field('Expected arrival (estimate)','arrival','date') + field('Tracking reference','tracking') + field('Carrier','carrier') + field('Pickup / handover arrangements','handover','textarea') + field('Freight allocation method','allocation','textarea');
-  h += '<h3 class="full">Internal coordination</h3>' + field('Supplier / source','supplier') + field('Buyer reference (private)','buyer') + field('Part cost in AUD','cost','number') + field('Freight share in AUD','freight','number') + field('Coordination fee in AUD','fee','number') + '<label>Batch' + select('batch', [['','Not assigned'], ...batches().map(b => [b.id, b.title])], e.batch || '') + '</label>' + field('Payment status / reference — no card data','payment') + field('Buyer approval reference + approved revision','approval') + field('Private notes / next action','notes','textarea') + '</div>';
-  h += '<h3>Photo evidence</h3><p>Front, rear, part number, connectors, mounting tabs and every defect. JPG/PNG/WebP. In this preview photos are kept in the browser, up to 1 MB each.</p><label class="upload">' + ic('camera',19) + 'Upload photos<input type="file" id="upload" accept="image/jpeg,image/png,image/webp" multiple></label><div class="photos" id="editphotos">' + photosHtml() + '</div><div class="actions"><button class="primary" type="submit">' + ic('check',17) + 'Save record</button><button type="button" data-act="closeedit">Cancel</button></div></form></div>';
-  return h;
-}
-function detailHtml(){
-  const d = S.detail;
-  let h = '<div class="overlay" data-act="closedetail"><section class="modal"><div class="modal-top"><span>RECORD · REVISION ' + esc(d.revision) + '</span><button data-act="closedetail" aria-label="Close">' + ic('x',24) + '</button></div><h2>' + esc(d.title) + '</h2><p>' + esc(d.sku || d.id) + ' · ' + esc(d.status) + '</p><div class="photos">' + (d.photos || []).map(ph => '<figure><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption) + '"><figcaption>' + esc(ph.caption) + '</figcaption></figure>').join('') + '</div><div class="details">' + Object.entries(d).filter(([k, v]) => !['id','kind','title','photos','revision'].includes(k) && typeof v !== 'object' && v !== '').map(([k, v]) => '<div><small>' + esc(k.replace(/([A-Z])/g,' $1')) + '</small><p>' + esc(v) + '</p></div>').join('') + '</div><div class="actions"><button class="primary" data-act="editdetail">' + ic('settings',16) + 'Edit record</button><button data-act="history">Revision history</button><button data-act="snapshot">Save exact snapshot</button></div>';
-  if (S.history) h += '<div class="history"><h3>Saved versions</h3><p>These are record revisions, not proof of buyer approval.</p>' + S.history.map(r => '<button data-act="rev" data-rev="' + esc(r.revision) + '">Revision ' + esc(r.revision) + ' · ' + esc(r.savedAt) + ' ' + ic('download',14) + '</button>').join('') + '</div>';
-  return h + '</section></div>';
-}
-function render(){
-  const p = parts(), t = S.tab;
-  const stats = [[p.length,'Individual parts','package'],[p.filter(x => x.photos?.length).length,'With photo evidence','camera'],[store.records.filter(x => x.kind === 'request').length,'Sourcing requests','clipboard'],[batches().filter(x => x.status !== 'Collected' && x.status !== 'Archived').length,'Active batches','layers']];
-  document.getElementById('app').innerHTML = '<div class="shell"><aside><a class="brand" href="./">AW<span>11</span><small>PARTS EXCHANGE</small></a><div class="workspace-label">YOUR WORKSPACE</div><nav>' + tabs.map(([key, label, icon]) => '<button class="' + (t === key ? 'active' : '') + '" data-act="tab" data-tab="' + key + '">' + ic(icon) + label + ic('chevron',14) + '</button>').join('') + '</nav><div class="route"><div class="route-line">AKL <span>··········→</span> SYD</div><p>Rare parts.<br>A clearer journey.</p><small>Preorder • Consolidate • Collect</small></div><div class="private"><span class="dot"></span> Static preview<small>Customer exports exclude internal fields.</small></div></aside>'
-  + '<main><header><div class="crumb">WORKSHOP / ' + (t === 'part' ? 'CATALOGUE' : t === 'request' ? 'SOURCING' : 'LOGISTICS') + '</div><button class="subtle" data-act="backup">' + ic('download',15) + 'Back up records</button></header>'
-  + '<section class="hero"><div><div class="eyebrow">THE NZ → SYDNEY PARTS ROUTE</div><h1>' + (t === 'part' ? 'Every part. Every detail.' : t === 'request' ? 'Find the missing pieces.' : 'One box. Many projects.') + '</h1><p>' + (t === 'part' ? 'A proper record for every piece, from first photo to final handover.' : t === 'request' ? 'Keep interest organised before you commit to an order.' : 'Coordinate your next shipment without keeping a warehouse.') + '</p></div><button class="primary" data-act="new">' + ic('plus') + 'Add ' + noun(true) + '</button></section>'
-  + '<section class="stats">' + stats.map(([n, l, i]) => '<div>' + ic(i,19) + '<strong>' + String(n).padStart(2,'0') + '</strong><span>' + l + '</span></div>').join('') + '</section>'
-  + (S.error && !S.edit ? '<div role="alert" class="error">' + esc(S.error) + '<button data-act="dismiss" aria-label="Dismiss error">' + ic('x',16) + '</button></div>' : '')
-  + (S.note ? '<div role="status" class="error" style="background:#eef3ed;border-color:#598a74;color:#203832">' + esc(S.note) + '<button data-act="dismissnote" aria-label="Dismiss">' + ic('x',16) + '</button></div>' : '')
-  + '<section class="toolbar"><div class="search">' + ic('search') + '<input id="search" aria-label="Search records" placeholder="Search name, SKU, fitment or part number…" value="' + esc(S.search) + '"></div><select id="filter" aria-label="Filter by stage">' + ['All stages', ...stages].map(s => '<option' + (s === S.filter ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' + (t === 'part' ? '<button data-act="export">' + ic('arrow',16) + 'Export customer catalogue</button>' : '') + (t === 'request' ? '<button data-act="questions">' + ic('clipboard',16) + 'Copy customer questions</button>' : '') + '</section>'
-  + '<div id="list">' + listHtml() + '</div>'
-  + '<footer><span>AW11 PARTS EXCHANGE</span><span>Evidence first. Confirm fitment. Agree the quote.</span></footer></main>'
-  + (S.detail ? detailHtml() : '') + (S.edit ? editHtml() : '') + '</div>';
-}
-
-const app = document.getElementById('app');
-app.addEventListener('click', ev => {
-  const el = ev.target.closest('[data-act]');
-  if (!el) return;
-  const act = el.dataset.act;
-  if (act === 'closedetail' && el.classList.contains('overlay') && ev.target !== el) return;
-  if (act === 'tab') { S.tab = el.dataset.tab; S.filter = 'All stages'; }
-  else if (act === 'new') { S.edit = empty(S.tab); S.error = ''; }
-  else if (act === 'detail') { S.detail = store.records.find(r => r.id === el.dataset.id); S.history = null; }
-  else if (act === 'closedetail') S.detail = null;
-  else if (act === 'closeedit') { S.edit = null; S.error = ''; }
-  else if (act === 'editdetail') { S.edit = JSON.parse(JSON.stringify(S.detail)); S.detail = null; S.error = ''; }
-  else if (act === 'history') S.history = store.revisions.filter(r => r.id === S.detail.id).sort((a, b) => b.revision - a.revision);
-  else if (act === 'rev') { const r = S.history.find(h => String(h.revision) === el.dataset.rev); return download('revision-' + r.revision + '.json', JSON.stringify(r, null, 2)); }
-  else if (act === 'snapshot') return download('part-' + (S.detail.sku || S.detail.id) + '-rev-' + S.detail.revision + '.json', JSON.stringify(S.detail, null, 2));
-  else if (act === 'backup') return download('aw11-database-backup.json', JSON.stringify({exportedAt: new Date().toISOString(), records: store.records}, null, 2));
-  else if (act === 'export') return exportCatalogue();
-  else if (act === 'dismiss') S.error = '';
-  else if (act === 'dismissnote') S.note = '';
-  else if (act === 'questions') {
-    const done = ok => { S.note = ok ? 'Customer questions copied. Paste them into a message.' : ''; if (!ok) download('aw11-customer-questions.txt', customerQuestions, 'text/plain'); render(); };
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(customerQuestions).then(() => done(true), () => done(false)); else done(false);
-    return;
-  }
-  else if (act === 'rmphoto') { S.edit.photos.splice(Number(el.dataset.i), 1); document.getElementById('editphotos').innerHTML = photosHtml(); return; }
-  else if (act === 'starter') {
-    try { for (const title of seedTitles) persist({...empty('request'), title, notes: 'Starter sourcing request only. Availability, price and condition have not been confirmed.'}); S.tab = 'request'; }
-    catch (e) { S.error = e.message; }
-  }
-  render();
-});
-app.addEventListener('input', ev => {
-  const el = ev.target;
-  if (el.id === 'search') { S.search = el.value; document.getElementById('list').innerHTML = listHtml(); }
-  else if (el.dataset.f && S.edit) S.edit[el.dataset.f] = el.value;
-  else if (el.dataset.cap && S.edit) S.edit.photos[Number(el.dataset.cap)].caption = el.value;
-});
-app.addEventListener('change', async ev => {
-  const el = ev.target;
-  if (el.id === 'filter') { S.filter = el.value; document.getElementById('list').innerHTML = listHtml(); }
-  else if (el.id === 'upload' && S.edit) {
-    const skipped = [];
-    for (const file of Array.from(el.files || [])) {
-      if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > MAX_PHOTO_BYTES) { skipped.push(file.name); continue; }
-      const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.readAsDataURL(file); });
-      S.edit.photos.push({url, caption: file.name});
-    }
-    S.error = skipped.length ? 'Skipped (use JPG, PNG or WebP under 1 MB in this preview): ' + skipped.join(', ') : '';
-    render();
-  }
-});
-app.addEventListener('submit', ev => {
+let text = '';
+$('req').addEventListener('submit', ev => {
   ev.preventDefault();
-  if (!S.edit) return;
-  try { persist(S.edit); S.edit = null; S.error = ''; }
-  catch (e) { S.error = e.message; }
-  render();
+  const car = {buildDate: $('buildDate').value, engine: $('engine').value, gearbox: $('gearbox').value, roof: $('roof').value, market: $('market').value};
+  const parts = [...document.querySelectorAll('.part')].map(p => ({name: p.querySelector('.p-name').value.trim(), side: p.querySelector('.p-side').value, qty: Math.max(1, Math.min(20, Number(p.querySelector('.p-qty').value) || 1)), note: p.querySelector('.p-note').value.trim()})).filter(p => p.name);
+  if (!parts.length) return;
+  const data = {v: 1, name: $('name').value.trim(), contact: $('contact').value.trim(), car, parts, sent: new Date().toISOString()};
+  const show = v => v === 'Not confirmed' || !v ? 'Not sure' : v;
+  const code = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  text = 'AW11 parts request from ' + data.name + '\nContact: ' + data.contact + '\n\nCar\n- Build date: ' + show(car.buildDate) + '\n- Engine: ' + show(car.engine) + '\n- Gearbox: ' + show(car.gearbox) + '\n- Roof: ' + show(car.roof) + '\n- Market: ' + show(car.market) + '\n\nParts\n' + parts.map((p, i) => (i + 1) + '. ' + p.name + (p.qty > 1 ? ' x' + p.qty : '') + (p.side !== 'Not applicable' ? ' – ' + p.side : '') + (p.note ? '\n   ' + p.note : '')).join('\n') + '\n\nAW11REQ:' + code;
+  $('message').textContent = text;
+  $('req').hidden = true; $('result').hidden = false; $('status').hidden = true;
+  $('share').hidden = !navigator.share;
+  $('result').scrollIntoView({behavior: 'smooth'});
 });
-document.getElementById('reset').addEventListener('click', () => {
-  if (!confirm('Delete all preview records stored in this browser?')) return;
-  localStorage.removeItem(KEY);
-  store = {records: [], revisions: []};
-  Object.assign(S, {edit: null, detail: null, history: null, error: '', search: '', filter: 'All stages'});
-  render();
+const say = m => { $('status').textContent = m; $('status').hidden = false; };
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(text); say('Copied. Paste it into your message to the organiser.'); }
+  catch { const r = document.createRange(); r.selectNodeContents($('message')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); say('Could not copy automatically. The message is selected: copy it manually.'); }
 });
-render();
+$('share').addEventListener('click', async () => { try { await navigator.share({text}); } catch {} });
+$('edit').addEventListener('click', () => { $('req').hidden = false; $('result').hidden = true; });
 </script>
 </body>
 </html>
