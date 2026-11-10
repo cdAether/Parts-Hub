@@ -25,6 +25,21 @@ const MAX_PHOTO_BYTES = 1024 * 1024;
 const stages = ['Sourcing','Awaiting evidence','Ready to quote','Reserved','Ordered','In transit','Received','Collected','Archived'];
 const seedTitles = ['RH power window regulator & motor','LH power window motor','Driver master window switch','Passenger window switch','LH door latch assembly','Engine bay fuse box cover'];
 const sides = ['Not applicable','RH — driver (RHD)','LH — passenger (RHD)','Pair'];
+const vehicleFields = [
+  ['Car build date (month and year)','buildDate',null],
+  ['Engine','engine',['Not confirmed','NA (4A-GE)','Supercharged (4A-GZE)']],
+  ['Gearbox','gearbox',['Not confirmed','Manual','Auto']],
+  ['Roof','roof',['Not confirmed','T-bar','Hardtop (slicktop)','Sunroof']],
+  ['Market','market',['Not confirmed','Australian-delivered','Japanese import','Other import']]
+];
+const customerQuestions = `To match parts to your AW11, can you tell me:
+1. Build date (month and year, from the build plate)
+2. Engine: NA (4A-GE) or supercharged (4A-GZE)
+3. Gearbox: manual or auto
+4. Roof: T-bar, hardtop (slicktop) or sunroof
+5. Australian-delivered or an import
+6. For each part: which side (left/right), colour if it is trim, and a photo of your old part or its part number if you have one
+No price or availability is confirmed until the supplier has checked the actual part.`;
 const tabs = [['part','Parts catalogue','package'],['request','Sourcing requests','clipboard'],['batch','Shipment batches','ship']];
 const icons = {
   package:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
@@ -44,12 +59,12 @@ const icons = {
 const ic = (name, size = 18, sw = 2) => '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + icons[name] + '</svg>';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money = n => n === '' || n == null ? 'Quote pending' : new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'}).format(Number(n));
-const empty = kind => ({kind,title:'',status:kind==='part'?'Awaiting evidence':'Sourcing',category:'Doors & windows',side:'Not applicable',fitment:'AW11 — exact fitment unconfirmed',condition:'',testing:'Not tested / no evidence supplied',included:'',missing:'',supplier:'',sku:'',partNumber:'',photos:[],price:'',cost:'',freight:'',fee:'',buyer:'',notes:'',batch:'',visibility:'Draft'});
+const empty = kind => ({kind,title:'',status:kind==='part'?'Awaiting evidence':'Sourcing',category:'Doors & windows',side:'Not applicable',fitment:'AW11 — exact fitment unconfirmed',condition:'',testing:'Not tested / no evidence supplied',included:'',missing:'',supplier:'',sku:'',partNumber:'',buildDate:'',engine:'Not confirmed',gearbox:'Not confirmed',roof:'Not confirmed',market:'Not confirmed',photos:[],price:'',cost:'',freight:'',fee:'',buyer:'',notes:'',batch:'',visibility:'Draft'});
 const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 let store = {records:[],revisions:[]};
 try { store = JSON.parse(localStorage.getItem(KEY)) || store; } catch {}
-const S = {tab:'part',search:'',filter:'All stages',edit:null,detail:null,history:null,error:''};
+const S = {tab:'part',search:'',filter:'All stages',edit:null,detail:null,history:null,error:'',note:''};
 
 function commit(){
   try { localStorage.setItem(KEY, JSON.stringify(store)); return true; }
@@ -112,7 +127,7 @@ function photosHtml(){
 function editHtml(){
   const e = S.edit;
   let h = '<div class="overlay"><form class="modal" id="editform"><div class="modal-top"><span>' + (e.id ? 'EDIT RECORD' : 'NEW ' + e.kind.toUpperCase()) + '</span><button type="button" data-act="closeedit" aria-label="Close">' + ic('x',24) + '</button></div><h2>' + (e.id ? 'Keep the record accurate.' : 'Give every piece a paper trail.') + '</h2><p>Record uncertainty explicitly. Save creates a new revision.</p>' + (S.error ? '<p role="alert" class="error">' + esc(S.error) + '</p>' : '') + '<div class="form-grid"><label class="full">Title<input required maxlength="160" data-f="title" value="' + esc(e.title) + '"></label>' + field('SKU / physical label','sku') + '<label>Stage' + select('status', stages, e.status) + '</label>';
-  if (e.kind !== 'batch') h += field('Category','category') + field('Part number — verify before sale','partNumber') + field('Vehicle / year / variant / fitment','fitment') + '<label>Side' + select('side', sides, e.side) + '</label>' + field('Condition and every known defect','condition','textarea') + field('Test performed, date and evidence','testing','textarea') + field('Included hardware / components','included','textarea') + field('Missing items / unknowns','missing','textarea');
+  if (e.kind !== 'batch') h += field('Category','category') + field('Part number — verify before sale','partNumber') + field('Vehicle / year / variant / fitment','fitment') + '<label>Side' + select('side', sides, e.side) + '</label>' + '<h3 class="full">' + (e.kind === 'part' ? 'Donor car' : 'Customer car') + '</h3>' + vehicleFields.map(([label, key, options]) => options ? '<label>' + label + select(key, options, e[key] || 'Not confirmed') + '</label>' : field(label, key, 'month')).join('') + field('Condition and every known defect','condition','textarea') + field('Test performed, date and evidence','testing','textarea') + field('Included hardware / components','included','textarea') + field('Missing items / unknowns','missing','textarea');
   if (e.kind === 'part') h += '<label>Customer export' + select('visibility', ['Draft','Catalogue'], e.visibility) + '</label>' + field('Customer quoted total (AUD)','price','number');
   if (e.kind === 'batch') h += field('Route','route') + field('Order cutoff','cutoff','date') + field('Expected arrival (estimate)','arrival','date') + field('Tracking reference','tracking') + field('Carrier','carrier') + field('Pickup / handover arrangements','handover','textarea') + field('Freight allocation method','allocation','textarea');
   h += '<h3 class="full">Internal coordination</h3>' + field('Supplier / source','supplier') + field('Buyer reference (private)','buyer') + field('Part cost in AUD','cost','number') + field('Freight share in AUD','freight','number') + field('Coordination fee in AUD','fee','number') + '<label>Batch' + select('batch', [['','Not assigned'], ...batches().map(b => [b.id, b.title])], e.batch || '') + '</label>' + field('Payment status / reference — no card data','payment') + field('Buyer approval reference + approved revision','approval') + field('Private notes / next action','notes','textarea') + '</div>';
@@ -133,7 +148,8 @@ function render(){
   + '<section class="hero"><div><div class="eyebrow">THE NZ → SYDNEY PARTS ROUTE</div><h1>' + (t === 'part' ? 'Every part. Every detail.' : t === 'request' ? 'Find the missing pieces.' : 'One box. Many projects.') + '</h1><p>' + (t === 'part' ? 'A proper record for every piece, from first photo to final handover.' : t === 'request' ? 'Keep interest organised before you commit to an order.' : 'Coordinate your next shipment without keeping a warehouse.') + '</p></div><button class="primary" data-act="new">' + ic('plus') + 'Add ' + noun(true) + '</button></section>'
   + '<section class="stats">' + stats.map(([n, l, i]) => '<div>' + ic(i,19) + '<strong>' + String(n).padStart(2,'0') + '</strong><span>' + l + '</span></div>').join('') + '</section>'
   + (S.error && !S.edit ? '<div role="alert" class="error">' + esc(S.error) + '<button data-act="dismiss" aria-label="Dismiss error">' + ic('x',16) + '</button></div>' : '')
-  + '<section class="toolbar"><div class="search">' + ic('search') + '<input id="search" aria-label="Search records" placeholder="Search name, SKU, fitment or part number…" value="' + esc(S.search) + '"></div><select id="filter" aria-label="Filter by stage">' + ['All stages', ...stages].map(s => '<option' + (s === S.filter ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' + (t === 'part' ? '<button data-act="export">' + ic('arrow',16) + 'Export customer catalogue</button>' : '') + '</section>'
+  + (S.note ? '<div role="status" class="error" style="background:#eef3ed;border-color:#598a74;color:#203832">' + esc(S.note) + '<button data-act="dismissnote" aria-label="Dismiss">' + ic('x',16) + '</button></div>' : '')
+  + '<section class="toolbar"><div class="search">' + ic('search') + '<input id="search" aria-label="Search records" placeholder="Search name, SKU, fitment or part number…" value="' + esc(S.search) + '"></div><select id="filter" aria-label="Filter by stage">' + ['All stages', ...stages].map(s => '<option' + (s === S.filter ? ' selected' : '') + '>' + s + '</option>').join('') + '</select>' + (t === 'part' ? '<button data-act="export">' + ic('arrow',16) + 'Export customer catalogue</button>' : '') + (t === 'request' ? '<button data-act="questions">' + ic('clipboard',16) + 'Copy customer questions</button>' : '') + '</section>'
   + '<div id="list">' + listHtml() + '</div>'
   + '<footer><span>AW11 PARTS EXCHANGE</span><span>Evidence first. Confirm fitment. Agree the quote.</span></footer></main>'
   + (S.detail ? detailHtml() : '') + (S.edit ? editHtml() : '') + '</div>';
@@ -157,6 +173,12 @@ app.addEventListener('click', ev => {
   else if (act === 'backup') return download('aw11-database-backup.json', JSON.stringify({exportedAt: new Date().toISOString(), records: store.records}, null, 2));
   else if (act === 'export') return exportCatalogue();
   else if (act === 'dismiss') S.error = '';
+  else if (act === 'dismissnote') S.note = '';
+  else if (act === 'questions') {
+    const done = ok => { S.note = ok ? 'Customer questions copied. Paste them into a message.' : ''; if (!ok) download('aw11-customer-questions.txt', customerQuestions, 'text/plain'); render(); };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(customerQuestions).then(() => done(true), () => done(false)); else done(false);
+    return;
+  }
   else if (act === 'rmphoto') { S.edit.photos.splice(Number(el.dataset.i), 1); document.getElementById('editphotos').innerHTML = photosHtml(); return; }
   else if (act === 'starter') {
     try { for (const title of seedTitles) persist({...empty('request'), title, notes: 'Starter sourcing request only. Availability, price and condition have not been confirmed.'}); S.tab = 'request'; }
