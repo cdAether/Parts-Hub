@@ -65,7 +65,7 @@ const uid = () => crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(
 
 let store = {records:[],revisions:[]};
 try { store = JSON.parse(localStorage.getItem(KEY)) || store; } catch {}
-const S = {tab:'part',search:'',filter:'All stages',edit:null,detail:null,history:null,error:'',note:'',importing:false};
+const S = {tab:'part',search:'',filter:'All stages',edit:null,detail:null,history:null,error:'',note:'',importing:false,split:null};
 
 function commit(){
   try { localStorage.setItem(KEY, JSON.stringify(store)); return true; }
@@ -131,7 +131,7 @@ function editHtml(){
   if (e.kind !== 'batch') h += field('Category','category') + field('Part number — verify before sale','partNumber') + field('Vehicle / year / variant / fitment','fitment') + '<label>Side' + select('side', sides, e.side) + '</label>' + '<h3 class="full">' + (e.kind === 'part' ? 'Donor car' : 'Customer car') + '</h3>' + vehicleFields.map(([label, key, options]) => options ? '<label>' + label + select(key, options, e[key] || 'Not confirmed') + '</label>' : field(label, key, 'month')).join('') + field('Condition and every known defect','condition','textarea') + field('Test performed, date and evidence','testing','textarea') + field('Included hardware / components','included','textarea') + field('Missing items / unknowns','missing','textarea');
   if (e.kind === 'request') h += '<label>Whose order' + select('order', ['Group order','My own order'], e.order || 'Group order') + '</label>' + field('Customer note (passed to supplier)','requestNote','textarea') + '<h3 class="full">Supplier reply</h3><label>Availability' + select('availability', availabilities, e.availability || 'Not asked') + '</label>' + field('Customer quoted total (AUD)','price','number');
   if (e.kind === 'part') h += '<label>Customer export' + select('visibility', ['Draft','Catalogue'], e.visibility) + '</label>' + field('Customer quoted total (AUD)','price','number');
-  if (e.kind === 'batch') h += field('Route','route') + field('Order cutoff','cutoff','date') + field('Expected arrival (estimate)','arrival','date') + field('Tracking reference','tracking') + field('Carrier','carrier') + field('Pickup / handover arrangements','handover','textarea') + field('Freight allocation method','allocation','textarea');
+  if (e.kind === 'batch') h += field('Total freight for the box in AUD (after packing)','freightTotal','number') + field('Route','route') + field('Order cutoff','cutoff','date') + field('Expected arrival (estimate)','arrival','date') + field('Tracking reference','tracking') + field('Carrier','carrier') + field('Pickup / handover arrangements','handover','textarea') + field('Freight allocation method','allocation','textarea');
   h += '<h3 class="full">Internal coordination</h3>' + field('Supplier / source','supplier') + field('Buyer reference (private)','buyer') + field('Part cost in AUD','cost','number') + field('Freight share in AUD (known after packing)','freight','number') + field('Coordination fee in AUD','fee','number') + '<label>Batch' + select('batch', [['','Not assigned'], ...batches().map(b => [b.id, b.title])], e.batch || '') + '</label>' + field('Payment status / reference — no card data','payment') + field('Buyer approval reference + approved revision','approval') + field('Private notes / next action','notes','textarea') + '</div>';
   h += '<h3>Photo evidence</h3><p>Front, rear, part number, connectors, mounting tabs and every defect. JPG/PNG/WebP. In this preview photos are kept in the browser, up to 1 MB each.</p><label class="upload">' + ic('camera',19) + 'Upload photos<input type="file" id="upload" accept="image/jpeg,image/png,image/webp" multiple></label><div class="photos" id="editphotos">' + photosHtml() + '</div><div class="actions"><button class="primary" type="submit">' + ic('check',17) + 'Save record</button><button type="button" data-act="closeedit">Cancel</button></div></form></div>';
   return h;
@@ -139,6 +139,7 @@ function editHtml(){
 function detailHtml(){
   const d = S.detail;
   let h = '<div class="overlay" data-act="closedetail"><section class="modal"><div class="modal-top"><span>RECORD · REVISION ' + esc(d.revision) + '</span><button data-act="closedetail" aria-label="Close">' + ic('x',24) + '</button></div><h2>' + esc(d.title) + '</h2><p>' + esc(d.sku || d.id) + ' · ' + esc(d.status) + '</p><div class="photos">' + (d.photos || []).map(ph => '<figure><img src="' + esc(ph.url) + '" alt="' + esc(ph.caption) + '"><figcaption>' + esc(ph.caption) + '</figcaption></figure>').join('') + '</div><div class="details">' + Object.entries(d).filter(([k, v]) => !['id','kind','title','photos','revision'].includes(k) && typeof v !== 'object' && v !== '').map(([k, v]) => '<div><small>' + esc(k.replace(/([A-Z])/g,' $1')) + '</small><p>' + esc(v) + '</p></div>').join('') + '</div><div class="actions"><button class="primary" data-act="editdetail">' + ic('settings',16) + 'Edit record</button><button data-act="history">Revision history</button><button data-act="snapshot">Save exact snapshot</button>' + (d.kind === 'request' && d.buyer ? '<button data-act="quote">Export quote for this customer</button>' : '') + '</div>';
+  if (d.kind === 'batch' && S.split) h += splitHtml(d);
   if (S.history) h += '<div class="history"><h3>Saved versions</h3><p>These are record revisions, not proof of buyer approval.</p>' + S.history.map(r => '<button data-act="rev" data-rev="' + esc(r.revision) + '">Revision ' + esc(r.revision) + ' · ' + esc(r.savedAt) + ' ' + ic('download',14) + '</button>').join('') + '</div>';
   return h + '</section></div>';
 }
@@ -168,6 +169,31 @@ function exportSupplier(){
   let html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>AW11 parts enquiry</title><style>body{font:15px system-ui;max-width:1000px;margin:40px auto;padding:20px;color:#182a2b}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px 10px;text-align:left;vertical-align:top}th{background:#eef3ed}td{white-space:pre-wrap}</style><h1>AW11 parts enquiry – NSW group</h1><p>Prepared ' + esc(new Date().toLocaleDateString('en-AU')) + ' · ' + list.length + ' line' + (list.length > 1 ? 's' : '') + '</p><p>This is an enquiry, not an order. For each line, could you say whether you have it, its condition (with photos if possible) and a price. Please quote the reference when replying.</p><table><tr><th>Ref</th><th>Part</th><th>Side</th><th>Part number</th><th>For this car</th><th>Notes</th></tr>';
   for (const r of list) html += '<tr><td>' + esc(ref(r)) + '</td><td>' + esc(r.title) + '</td><td>' + esc(r.side === 'Not applicable' ? '' : r.side) + '</td><td>' + esc(r.partNumber || '') + '</td><td>' + esc(car(r)) + '</td><td>' + esc(r.requestNote || '') + '</td></tr>';
   download('AW11-supplier-enquiry.html', html + '</table>', 'text/html');
+}
+const isNum = v => v !== '' && v != null && !isNaN(Number(v));
+const batchLines = id => store.records.filter(r => r.kind !== 'batch' && r.batch === id && r.status !== 'Archived' && isNum(r.price) && Number(r.price) > 0);
+function initSplit(batch){
+  const lines = batchLines(batch.id), sum = lines.reduce((t, r) => t + Number(r.price), 0);
+  S.split = lines.map(r => ({id: r.id, pct: isNum(r.freightPct) ? Number(r.freightPct) : Math.round(Number(r.price) / sum * 1000) / 10}));
+}
+function splitAmounts(total){
+  const cents = S.split.map(x => Math.round(total * x.pct) ), all = Math.round(total * 100);
+  if (cents.length && Math.abs(S.split.reduce((t, x) => t + x.pct, 0) - 100) < 0.05) cents[cents.length - 1] += all - cents.reduce((t, c) => t + c, 0);
+  return cents.map(c => c / 100);
+}
+function splitSummary(total){
+  const pct = S.split.reduce((t, x) => t + x.pct, 0), ok = Math.abs(pct - 100) < 0.05;
+  return 'Shares add up to ' + (Math.round(pct * 10) / 10) + '%' + (ok ? '.' : ' — adjust them to total 100% before applying.');
+}
+function splitHtml(d){
+  const total = isNum(d.freightTotal) ? Number(d.freightTotal) : null;
+  let h = '<div class="history"><h3>Freight split</h3>';
+  if (total == null) return h + '<p>Edit this batch and enter the total freight for the box once the supplier has packed and weighed it.</p></div>';
+  if (!S.split.length) return h + '<p>No priced requests or parts are assigned to this batch yet. Assign them with the Batch field on each record.</p></div>';
+  const amounts = splitAmounts(total);
+  h += '<p>Total freight ' + esc(money(total)) + '. Shares start in proportion to each line’s quoted price. Adjust the percentages, then apply.</p><table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="text-align:left"><th>Line</th><th>Buyer</th><th>Price</th><th style="width:90px">Share %</th><th>Freight</th></tr>';
+  S.split.forEach((x, i) => { const r = store.records.find(r => r.id === x.id); h += '<tr><td style="padding:6px 8px 6px 0">' + esc(r.title) + '</td><td>' + esc(r.buyer || '') + '</td><td>' + esc(money(r.price)) + '</td><td><input data-pct="' + i + '" type="number" min="0" max="100" step="0.1" value="' + x.pct + '" aria-label="Share percent for ' + esc(r.title) + '"></td><td data-amt="' + i + '">' + esc(money(amounts[i])) + '</td></tr>'; });
+  return h + '</table><p id="splitsum">' + esc(splitSummary(total)) + '</p><div class="actions"><button class="primary" data-act="applysplit">' + ic('check',16) + 'Apply freight shares</button><button data-act="resetsplit">Reset to price proportion</button></div></div>';
 }
 function exportQuote(buyer){
   const list = store.records.filter(r => r.kind === 'request' && r.status !== 'Archived' && r.buyer === buyer);
@@ -212,7 +238,7 @@ app.addEventListener('click', ev => {
   if (act === 'closedetail' && el.classList.contains('overlay') && ev.target !== el) return;
   if (act === 'tab') { S.tab = el.dataset.tab; S.filter = 'All stages'; }
   else if (act === 'new') { S.edit = empty(S.tab); S.error = ''; }
-  else if (act === 'detail') { S.detail = store.records.find(r => r.id === el.dataset.id); S.history = null; }
+  else if (act === 'detail') { S.detail = store.records.find(r => r.id === el.dataset.id); S.history = null; S.split = null; if (S.detail.kind === 'batch') initSplit(S.detail); }
   else if (act === 'closedetail') S.detail = null;
   else if (act === 'closeedit') { S.edit = null; S.error = ''; }
   else if (act === 'editdetail') { S.edit = JSON.parse(JSON.stringify(S.detail)); S.detail = null; S.error = ''; }
@@ -226,6 +252,16 @@ app.addEventListener('click', ev => {
   else if (act === 'import') { S.importing = true; S.error = ''; }
   else if (act === 'closeimport') { S.importing = false; S.error = ''; }
   else if (act === 'supplier') return exportSupplier();
+  else if (act === 'resetsplit') { for (const x of S.split) { const r = store.records.find(r => r.id === x.id); delete r.freightPct; } initSplit(S.detail); }
+  else if (act === 'applysplit') {
+    const total = Number(S.detail.freightTotal);
+    if (Math.abs(S.split.reduce((t, x) => t + x.pct, 0) - 100) >= 0.05) { S.error = 'Freight shares must add up to 100%.'; S.detail = null; }
+    else try {
+      const amounts = splitAmounts(total);
+      S.split.forEach((x, i) => persist({...store.records.find(r => r.id === x.id), freight: amounts[i].toFixed(2), freightPct: x.pct}));
+      S.note = 'Freight shares applied to ' + S.split.length + ' line' + (S.split.length > 1 ? 's' : '') + '.'; S.detail = null;
+    } catch (e) { S.error = e.message; S.detail = null; }
+  }
   else if (act === 'quote') return exportQuote(S.detail.buyer);
   else if (act === 'questions') {
     const done = ok => { S.note = ok ? 'Customer questions copied. Paste them into a message.' : ''; if (!ok) download('aw11-customer-questions.txt', customerQuestions, 'text/plain'); render(); };
@@ -243,6 +279,12 @@ app.addEventListener('input', ev => {
   const el = ev.target;
   if (el.id === 'search') { S.search = el.value; document.getElementById('list').innerHTML = listHtml(); }
   else if (el.dataset.f && S.edit) S.edit[el.dataset.f] = el.value;
+  else if (el.dataset.pct && S.split) {
+    S.split[Number(el.dataset.pct)].pct = Math.max(0, Number(el.value) || 0);
+    const total = Number(S.detail.freightTotal), amounts = splitAmounts(total);
+    amounts.forEach((a, i) => { document.querySelector('[data-amt="' + i + '"]').textContent = money(a); });
+    document.getElementById('splitsum').textContent = splitSummary(total);
+  }
   else if (el.dataset.cap && S.edit) S.edit.photos[Number(el.dataset.cap)].caption = el.value;
 });
 app.addEventListener('change', async ev => {
